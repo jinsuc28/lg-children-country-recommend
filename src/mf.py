@@ -8,6 +8,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from utils import ndcg_calculator
+import gc
+from datetime import timedelta
+from dateutil.relativedelta import relativedelta
+import logging
+
+
+## load data
+test_answer_week = pd.read_parquet("../input/lg-train-test/test_answer_week.parquet")
+test_answer_month = pd.read_parquet("../input/lg-train-test/test_answer_month.parquet")
+
+df_train_week = pd.read_parquet("../input/lg-train-test/train_week.parquet")
+df_train_month = pd.read_parquet("../input/lg-train-test/train_month.parquet")
+
+sample_sumbission_week = pd.read_parquet("../input/lg-train-test/sample_sumbission_week.parquet")
+sample_sumbission_month = pd.read_parquet("../input/lg-train-test/sample_sumbission_month.parquet")
+
+train_week = df_train_week.copy()
+train_month = df_train_month.copy()
+mf_sumbission_week = sample_sumbission_week.copy()
+mf_sumbission_month = sample_sumbission_month.copy()
+
+## you also need full dataset, if want to make submit.csv
+history_mf = pd.read_csv("../input/lgground/history_data.csv")
+sub=pd.read_csv('../input/lgground/sample_submission.csv')
 
 
 def user_item_maps(df):
@@ -33,7 +57,7 @@ def make_csr_matrix(df):
     return csr_train
 
 
-def train(csr_train, factors=200, iterations=5, regularization=0.01, show_progress=True):
+def train(csr_train, factors=200, iterations=3, regularization=0.01, show_progress=True):
     model = implicit.als.AlternatingLeastSquares(factors=factors, 
                                                  iterations=iterations, 
                                                  regularization=regularization, 
@@ -90,7 +114,59 @@ print("Month performance")
 print(f"nDCG(MF_month): {mf_month_ndcg:.4f}")
 
 
+
+###########################
+## MF with whole History
+###########################
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+
+def extract_data(base_path):
+    df_history = pd.read_csv("")
+    logger.info("History are extracted")
+    return df_history
+
+
+def preprocess_date(df_history):
+    ## 날짜 전처리
+    df_history = df_history.assign(log_dt = pd.to_datetime(df_history.log_time//100, format="%Y%m%d%H%M"))
+    df_history = df_history.assign(log_date = df_history.log_dt.dt.floor("D"))
+    df_history = df_history.drop("log_time", axis=1)
+    logger.info("Datetime preprocess completed")
+    return df_history
+
+def real_submit(model, csr_train, sub):  
+    preds = []
+    batch_size = 2000
+    to_generate = np.arange(len(ALL_USERS))
+    pred_df = []
+    for startidx in range(0, len(to_generate), batch_size):
+        batch = to_generate[startidx : startidx + batch_size]
+        ids, scores = model.recommend(batch, csr_train[batch], N=25, filter_already_liked_items=False)
+        for i, profile_id in enumerate(batch):
+            profile_id = user_ids[profile_id]
+            user_items = ids[i]
+            album_ids = [item_ids[item_id] for item_id in user_items] 
+            pred_df.append({'profile_id':profile_id,'predicted_list':album_ids})
+    sub = pd.DataFrame(pred_df)    
+    return sub
+
+user_item_maps(history_mf)
+mf_csr = make_csr_matrix(history_mf)
+mf_model = train(mf_csr)
+mf_preds = real_submit(mf_model, mf_csr, sub)
+
+
+# week best Factors: 1000 - Iterations:  3 - Regularization: 0.100 ==> LB 0.2266 / ndcg 0.11888 
+''' 현재 최고 성능 (week valid 기준)
+### factors=200, iterations=3, regularization=0.05  ==> LB 0.2275 / ndcg 0.11312
+    정확히 2배의 결과. 오히려 자체측정 최고 param보다 잘 나왔다.
+    factor가 많다고 좋은 결과가 나오는 것은 아니다.
 '''
->> Next step
-Neg sampling & pyper parameter tuning
-'''
+
+mf_preds['predicted_list'] = mf_preds['predicted_list'].apply(lambda x: str(x))
+mf_preds.to_csv('als.csv', index=False)
