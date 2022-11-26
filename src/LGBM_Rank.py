@@ -8,26 +8,6 @@ from utils import ndcg_calculator
 
 
 
-
-def dataload(path:str='../../data/'):
-
-    test_answer_week = pd.read_parquet(path + "test_answer_week.parquet")
-    test_answer_month = pd.read_parquet(path + "test_answer_month.parquet")
-
-    df_train_week = pd.read_parquet(path + "train_week.parquet")
-    df_train_month = pd.read_parquet(path + "train_month.parquet")
-
-    sample_sumbission_week = pd.read_parquet(path + "sample_sumbission_week.parquet")
-    sample_sumbission_month = pd.read_parquet(path + "sample_sumbission_month.parquet")
-
-    df_train_week.sort_values(by='log_dt', inplace=True)
-    df_train_month.sort_values(by='log_dt', inplace=True)
-    
-    return test_answer_week, test_answer_month, df_train_week, df_train_month, sample_sumbission_week, sample_sumbission_month
-
-
-
-
 class LGBMRank():
     def __init__(self, 
                 train_df:pd.DataFrame(), 
@@ -100,7 +80,8 @@ class LGBMRank():
 
 
         model, feature_importances_df = self.train()
-        
+        print(feature_importances_df)
+
         pred = model.predict(X_train)
         X_train['pred'] = pred
 
