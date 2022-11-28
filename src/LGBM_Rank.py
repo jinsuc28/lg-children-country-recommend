@@ -36,6 +36,11 @@ class LGBMRank():
         y_train = train_df['rating']
         
         train_group = train_df.groupby('profile_id')['profile_id'].count().to_numpy()
+
+        self.item_idx = X_train["album_id"].copy()
+        self.user_idx = X_train["profile_id"].copy()
+        del X_train["album_id"], X_train["profile_id"]
+
         return X_train, y_train, train_group
 
 
@@ -77,13 +82,16 @@ class LGBMRank():
         X_train = self.X_train
         n = self.n
         
-
-
         model, feature_importances_df = self.train()
         print(feature_importances_df)
 
         pred = model.predict(X_train)
         X_train['pred'] = pred
+
+        item_idx = self.item_idx 
+        user_idx = self.user_idx
+        X_train["album_id"] = item_idx
+        X_train["profile_id"] = user_idx
 
         if self.mode == 'week':
             sample_sumbission = self.sample_sumbission_week
