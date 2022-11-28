@@ -75,6 +75,6 @@ def train_label_split(df_train:pd.DataFrame())->pd.DataFrame():
     label_df.drop_duplicates(subset=['profile_id','album_id'],inplace=True)
     label_df['rating'] = 1
 
-    df_train = df_train.query(f"week < {last_week}")
+    df_train = df_train.query(f"week <= {last_week}")
     
     return df_train, label_df
