@@ -85,3 +85,39 @@ def profile_feature_engineering(profile):
     profile['age_bin'] = profile['age_bin'].astype('category')    
     
     return profile
+
+
+def day_week_feature(df_train_week):
+    # day week feature
+    interaction_day_week_first = df_train_week[["profile_id","album_id","week","day"]].drop_duplicates(subset=["profile_id","album_id"],keep="first")
+    # interaction_day_week_last = df_train_week[["profile_id","album_id","week","day"]].drop_duplicates(subset=["profile_id","album_id"],keep="last")
+
+    return interaction_day_week_first
+
+def hour_feature(df_train_week):
+    # hour_feature
+
+    hour_feature = df_train_week[["profile_id","album_id","log_dt"]]
+    hour_feature["hour"] = hour_feature["log_dt"].apply(lambda x: x.hour)
+    hour_dummies = pd.get_dummies(hour_feature["hour"])
+    hour_dummies.columns = ["hour_"+str(i) for i in hour_dummies.columns]
+    hour_feature = pd.concat([hour_feature, hour_dummies], axis=1)
+    hour_feature["hour"] = hour_feature["hour"].apply(lambda x: x/x if x !=0 else 0)
+    hour_feature = hour_feature.groupby(["profile_id","album_id"]).sum().reset_index()
+
+    # ratio_hour_feature
+
+    ratio_hour_feature = hour_feature.copy()
+    for col in ratio_hour_feature.columns[3:]:
+        ratio_hour_feature[col] = ratio_hour_feature[col]/ratio_hour_feature["hour"]
+        
+    for col in ratio_hour_feature.columns[3:]:
+        ratio_hour_feature = ratio_hour_feature.rename(columns={col:"ratio_"+col})
+    del ratio_hour_feature["hour"]
+    del hour_feature["hour"]
+
+    # hour feature & ratio_hour_feature merge
+    hour_feature = pd.merge(hour_feature,ratio_hour_feature, how="left", on=["profile_id","album_id"])
+
+    return hour_feature
+
