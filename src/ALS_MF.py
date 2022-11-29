@@ -8,12 +8,10 @@ import scipy.sparse as sp
 class MF():
     def __init__(self,
                 train:pd.DataFrame(),
-                label_df:pd.DataFrame(),
                 clf={'factors':200 , 'regularization':0.005, 'iterations':3, 'n':100}):
 
         self.train = train.drop_duplicates(subset=['profile_id','album_id','ss_id'])
         self.userIdToIndex, self.indexToUserId, self.PdIdToIndex, self.indexToPdId, self.purchase_sparse = self.matrix()
-        self.label_df = label_df[['profile_id','album_id']]
         self.clf = clf
 
     def matrix(self):
@@ -79,6 +77,8 @@ class MF():
 
         item_vector = pd.DataFrame(als_model.item_factors)
         user_vector = pd.DataFrame(als_model.user_factors)
+        item_vector.columns = ["item_vector" + str(num) for num in item_vector.columns]
+        user_vector.columns = ["user_vector" + str(num) for num in user_vector.columns]
 
         item_vector_feature = item_vector.reset_index()
         item_vector_feature["index"] = item_vector_feature["index"].apply(lambda x: indexToPdId[x])
