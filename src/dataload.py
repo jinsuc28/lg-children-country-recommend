@@ -78,3 +78,15 @@ def train_label_split(df_train:pd.DataFrame())->pd.DataFrame():
     df_train = df_train.query(f"week <= {last_week}")
     
     return df_train, label_df
+
+
+def feature_dataload(path):
+    watch_df = pd.read_csv(path + "watch_e_data.csv")
+    buy_df = pd.read_csv(path + "buy_data.csv")
+    search_df = pd.read_csv(path + "search_data.csv")
+    meta_df = pd.read_csv(path + "meta_data.csv")
+    profile_df = pd.read_csv(path + "profile_data.csv")
+
+    return watch_df, buy_df, search_df, meta_df, profile_df
+
+
