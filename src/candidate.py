@@ -69,6 +69,7 @@ def general_most_popular(df_train):
 
 
 def personal_most_popular(personal_train):
+    
     personal_MP_df = personal_train.groupby(['profile_id','album_id'])[['ss_id']].count().reset_index()
     personal_MP_df.columns = ['profile_id','album_id','personal_counts']
 
@@ -78,25 +79,27 @@ def personal_most_popular(personal_train):
     personal_MP = personal_MP_df[personal_MP_df['personal_counts'] >= 5]
     personal_MP = personal_MP.sort_values(by=['profile_id','personal_counts'],ascending=False)
 
+    # 한 유저가 서로 다른날 5회 이상 시청한 아이템을 나열하고 이를 count하여 MP 구함
+    top_rewatch_MP_df = personal_MP.groupby("album_id").count()["personal_counts"].reset_index().sort_values(by="personal_counts", ascending=False).head()
+    top_rewatch_MP_df = top_rewatch_MP_df.rename(columns={"personal_counts":"total_cnt"})
+
     # 상위 5개만 pick
     head_df_list = []
     # 전체 유저 대상으로 뽑기
     for user_id in tqdm(personal_train.profile_id.unique()):
         personal_MP_user_len = len(personal_MP[personal_MP['profile_id']==user_id].head())
-        random_choice_list = personal_MP.album_id.unique()
+        
         if personal_MP_user_len <5:
             # 5개 아이템이 없는 경우 랜덤으로 없는 개수만 만큼 choice
             user_df = personal_MP[personal_MP['profile_id']==user_id]
             df = pd.DataFrame()
-            np.random.seed(42)
-            random_choices = np.random.choice(random_choice_list, size=(5-personal_MP_user_len))
-            df['profile_id'] = [user_id for _ in range(5-personal_MP_user_len)]
-            df['album_id'] = random_choices
+            df['profile_id'] = [user_id for _ in range(5-len(user_df))]
+            df['album_id'] = [top_rewatch_MP_df.album_id.values[num] for num in range(5-len(user_df))]
             df = pd.concat([user_df, df])
             head_df_list.append(df)
         else:
             head_df_list.append(personal_MP[personal_MP['profile_id']==user_id].head())
-            
+
     personal_MP_candidate = pd.concat(head_df_list)
 
     return personal_MP_candidate, personal_MP_feature
