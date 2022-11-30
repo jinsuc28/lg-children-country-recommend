@@ -164,3 +164,40 @@ def user_genre_most_popular(df_train, meta_df):
 
     
     return genre_candidate
+
+
+def age_MP(history_df, profile_df):
+    age_df = pd.merge(history,profile,how="left",on="profile_id")
+    age_mp_df = age_df.groupby(['age','album_id'])[["act_target_dtl"]].count().reset_index()
+    age_mp_df = age_mp_df.rename(columns={"act_target_dtl":'age_album_counts'}).sort_values(by=["age","age_album_counts"],ascending=False)
+
+    age_mp=[]
+    for i in range(1,14):
+        age = i
+        album_ids = age_mp_df.loc[age_mp_df[(age_mp_df["age"]==i)].index[0:15]].album_id.values
+        for j in album_ids : 
+            album = j
+            age_mp.append({"age":age , "album_id": album})
+    age_mp_cand_df = pd.DataFrame(age_mp)
+    
+    for i in range(1,14):
+        if i == 1 :
+            age_pool = age_mp_cand_df[age_mp_cand_df["age"]<=i+2] 
+            age_pool['age']= age_pool['age'].replace([i+1,i+2],i) 
+            age_pool_mp_df = age_pool
+        if i == 13 :
+            age_pool = age_mp_cand_df[age_mp_cand_df["age"]<=i-2]
+            age_pool['age']= age_pool['age'].replace([i-1,i-2],i) 
+            age_pool_mp_df = pd.concat([age_pool_mp_df,age_pool])
+        else :
+            age_pool = age_mp_cand_df[(age_mp_cand_df["age"]>=i-1)&(age_mp_cand_df["age"]<=i+1)] 
+            age_pool['age']= age_pool['age'].replace([i-1,i+1],i) 
+            age_pool_mp_df = pd.concat([age_pool_mp_df,age_pool])
+            
+    age_pool_mp_df = age_pool_mp_df.drop_duplicates()  
+    add_proID = history.merge(profile,how="left",on="profile_id").drop(columns="album_id")
+    add_proID = add_proID.merge(age_mp_cand_df,how="left",on="age")
+    age_MP_candidate = add_proID[["profile_id","album_id"]]
+    age_MP_candidate = age_MP_candidate.drop_duplicates()
+    
+    return age_MP_candidate
