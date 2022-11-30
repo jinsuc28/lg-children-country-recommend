@@ -7,7 +7,6 @@ import math
 
 
 ####### History 
-
 def history_feature_engineering(df):
     
     ####### Short trailer & Continuous play - categorical
@@ -23,8 +22,7 @@ def history_feature_engineering(df):
     return df
 
 
-
-
+####### Watch 
 def watch_feature_engineering(watch):
     watch['continuous_play'] = watch['continuous_play'].astype('category')
     watch_feature = watch[['profile_id','album_id','continuous_play','total_time']]
@@ -32,7 +30,7 @@ def watch_feature_engineering(watch):
 
 
 
-
+####### Buy & Search
 def paid_feature_engineering(df,buy):
     history_pay = df[["album_id","payment"]].copy()
     paid_album = list(set(buy["profile_id"].unique().tolist() + history_pay.dropna().drop_duplicates().album_id.unique().tolist()))
@@ -44,9 +42,6 @@ def paid_feature_engineering(df,buy):
     paid_feature = paid_feature[paid_feature["paid_label"]==1].drop_duplicates()
     return paid_feature
 
-
-
-
 def searched_feature_engineering(df,search):
     search_album = search["album_id"].unique().tolist()
     label = [1]*len(search_album)
@@ -57,19 +52,52 @@ def searched_feature_engineering(df,search):
 
 
 
+####### Meta
 
 def meta_feature_engineering(meta):
+    ####### genre_small - reclassification
+    meta["genre_small"] = meta["genre_small"].fillna("etc")
     
-    ####### sub_title & genre_large & genre_mid - categorical
-    cat_features = ['sub_title','genre_large','genre_mid','country']
+    ####### country - reclassification
+    replace_country = ["아르헨티나","오스트리아","우크라이나","네덜란드","캐나다","크로아티아"]
+    meta['country'] = meta['country'].replace(to_replace = replace_country, value= 'etc')
+    
+    ####### make categorical
+    cat_features = ['genre_large','genre_mid','genre_small','country']
     for i in enumerate (cat_features) :
         col = i[1]
         meta[col] = meta[col].astype('category')
-
+        
     return meta
 
+def fav_cast(history,meta):
+    # 169 nunique cast 
+    
+    ####### find user's favorite cast 
+    history_df = history[["profile_id","album_id"]].drop_duplicates()
+    cast_df = meta[["album_id","cast_1"]].drop_duplicates()
+    fav_cast = pd.merge(history_df,cast_df,how='left',on="album_id")
+    fav_cast_df = pd.DataFrame(fav_cast.groupby(["profile_id","cast_1"]).size())
+    fav_cast_df2= fav_cast_df[fav_cast_df>=1].reset_index().sort_values(by=['profile_id',0],ascending=False)
+    
+    User_list = fav_cast_df2['profile_id'].unique().tolist()
+    User_list.sort(reverse=True)
+
+    fav_list=[]
+    for user in User_list:
+        user_id = user
+        fav_cast = fav_cast_df2.loc[fav_cast_df2[(fav_cast_df2["profile_id"]==user_id)].index[0]].cast_1
+        fav_list.append({"profile_id":user_id , "favorite_cast": fav_cast})
+
+    fav_df = pd.DataFrame(fav_list)
+    fav_make_df = pd.merge(history,fav_df,how="left",on="profile_id")
+    fav_make_df["favorite_cast"]= fav_make_df["favorite_cast"].fillna("unknown").astype('category')
+    favorite_cast = fav_make_df[["profile_id","favorite_cast"]].drop_duplicates()
+    return favorite_cast
 
 
+
+####### Profile 
 
 def profile_feature_engineering(profile):
     #######  sex / age / pr_interest_keyword_cd_1 / ch_interest_keyword_cd_1 - categorical
@@ -85,6 +113,7 @@ def profile_feature_engineering(profile):
     profile['age_bin'] = profile['age_bin'].astype('category')    
     
     return profile
+
 
 
 def day_week_feature(df_train_week):
