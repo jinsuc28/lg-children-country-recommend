@@ -48,6 +48,9 @@ def searched_feature_engineering(df,search):
     searched_label_df = pd.DataFrame(zip(search_album, label)).rename(columns=({0:"album_id",1:"searched_label"}))
     searched_df = pd.merge(df,searched_label_df,on="album_id",how="left")
     searched_df["searched_label"] = searched_df["searched_label"].fillna(0).astype(int).astype("category")
+
+    searched_df = searched_df[["profile_id","album_id","searched_label"]].drop_duplicates()
+
     return searched_df
 
 
@@ -62,6 +65,8 @@ def meta_feature_engineering(meta):
     replace_country = ["아르헨티나","오스트리아","우크라이나","네덜란드","캐나다","크로아티아"]
     meta['country'] = meta['country'].replace(to_replace = replace_country, value= 'etc')
     
+    meta["genre_mid"] = meta["genre_mid"].apply(lambda x: "노래율동" if "노래" in x else x)
+
     ####### make categorical
     cat_features = ['genre_large','genre_mid','genre_small','country']
     for i in enumerate (cat_features) :
