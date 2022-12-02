@@ -103,6 +103,52 @@ def profile_feature_engineering(profile):
     
     return profile
 
+def interest_keyword_cd(history, profile):
+    data = pd.merge(history,profile,how="left",on="profile_id")
+    data = data[["profile_id","pr_interest_keyword_cd_1","pr_interest_keyword_cd_2","pr_interest_keyword_cd_3","ch_interest_keyword_cd_1","ch_interest_keyword_cd_2","ch_interest_keyword_cd_3"]]
+    data = data.drop_duplicates(subset="profile_id").reset_index(drop=True)
+    interest_df = data[["profile_id"]]
+    interest_df = interest_df.join(pd.DataFrame(
+        [[0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0]], 
+        index=interest_df.index, 
+        columns=['P01', 'P02', 'P03','P04', 'P05', 'P06','P07', 'P08', 'K01', 'K02', 'K03', 'K04', 'K05', 'K06', 'K07', 'K08', 'K09']))
+    keyword_dict={}
+    P_list = ['P01', 'P02', 'P03','P04', 'P05', 'P06','P07', 'P08']
+    K_list = ['K01', 'K02', 'K03', 'K04', 'K05', 'K06', 'K07', 'K08', 'K09']
+    for idx,row in data.iterrows():
+        pr_interest_keyword_cd_1 = row.pr_interest_keyword_cd_1
+        pr_interest_keyword_cd_2 = row.pr_interest_keyword_cd_2
+        pr_interest_keyword_cd_3 = row.pr_interest_keyword_cd_3
+        ch_interest_keyword_cd_1 = row.ch_interest_keyword_cd_1
+        ch_interest_keyword_cd_2 = row.ch_interest_keyword_cd_2
+        ch_interest_keyword_cd_3 = row.ch_interest_keyword_cd_3    
+        user = row.profile_id
+        keyword_dict={user:[pr_interest_keyword_cd_1,pr_interest_keyword_cd_2,pr_interest_keyword_cd_3,ch_interest_keyword_cd_1,ch_interest_keyword_cd_2,ch_interest_keyword_cd_3]}
+        pr_1 = keyword_dict.get(user)[0]
+        pr_2 = keyword_dict.get(user)[1]
+        pr_3 = keyword_dict.get(user)[2]
+        ch_1 = keyword_dict.get(user)[3]
+        ch_2 = keyword_dict.get(user)[4] 
+        ch_3 = keyword_dict.get(user)[5]    
+        if pr_1 in P_list :
+            interest_df.loc[idx][pr_1]=1
+        if pr_2 in P_list :
+            interest_df.loc[idx][pr_2]=1
+        if pr_3 in P_list :
+            interest_df.loc[idx][pr_3]=1  
+        if ch_1 in K_list :
+            interest_df.loc[idx][ch_1]=1
+        if ch_2 in K_list :
+            interest_df.loc[idx][ch_2]=1
+        if ch_3 in K_list :
+            interest_df.loc[idx][ch_3]=1
+        else :
+            pass
+    return interest_df
+
+
+
+####### day
 
 
 def day_week_feature(df_train_week):
