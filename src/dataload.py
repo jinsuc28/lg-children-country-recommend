@@ -71,7 +71,7 @@ def train_label_split(df_train:pd.DataFrame, cv_date=0)->pd.DataFrame:
     last_week = df_train['week'].max() - cv_date
     print('split last week:', last_week)
 
-    label_df = df_train.query(f'week=={last_week - cv_date}')[['profile_id','album_id']]
+    label_df = df_train.query(f'week=={last_week - cv_date }')[['profile_id','album_id']]
     label_df.drop_duplicates(subset=['profile_id','album_id'],inplace=True)
     label_df['rating'] = 1
 

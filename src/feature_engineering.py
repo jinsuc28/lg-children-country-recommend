@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from datetime import timedelta
 import math
-
+from sklearn.preprocessing import MinMaxScaler
 
 
 
@@ -54,6 +54,16 @@ def searched_feature_engineering(df,search):
     return searched_df
 
 
+def paid_count_feature(history_df):
+    paid_df = history_df.loc[history_df["payment"].index]
+    paid_count = pd.DataFrame(paid_df.groupby("profile_id").size().sort_values(ascending=False)).unstack().reset_index().drop(columns="level_0").rename(columns={0:"pay_count"})
+    paid_count_df = paid_count[["pay_count"]]
+    scaler = MinMaxScaler()
+    scaler.fit(paid_count_df)
+    paid_scaled_ = scaler.transform(paid_count_df)
+    paid_count['pay_count_normalized'] = paid_scaled_
+    paid_count = paid_count.drop(labels="pay_count",axis=1)
+    return paid_count
 
 ####### Meta
 
@@ -74,32 +84,6 @@ def meta_feature_engineering(meta):
         meta[col] = meta[col].astype('category')
         
     return meta
-
-def fav_cast(history,meta):
-    # 169 nunique cast 
-    
-    ####### find user's favorite cast 
-    history_df = history[["profile_id","album_id"]].drop_duplicates()
-    cast_df = meta[["album_id","cast_1"]].drop_duplicates()
-    fav_cast = pd.merge(history_df,cast_df,how='left',on="album_id")
-    fav_cast_df = pd.DataFrame(fav_cast.groupby(["profile_id","cast_1"]).size())
-    fav_cast_df2= fav_cast_df[fav_cast_df>=1].reset_index().sort_values(by=['profile_id',0],ascending=False)
-    
-    User_list = fav_cast_df2['profile_id'].unique().tolist()
-    User_list.sort(reverse=True)
-
-    fav_list=[]
-    for user in User_list:
-        user_id = user
-        fav_cast = fav_cast_df2.loc[fav_cast_df2[(fav_cast_df2["profile_id"]==user_id)].index[0]].cast_1
-        fav_list.append({"profile_id":user_id , "favorite_cast": fav_cast})
-
-    fav_df = pd.DataFrame(fav_list)
-    fav_make_df = pd.merge(history,fav_df,how="left",on="profile_id")
-    fav_make_df["favorite_cast"]= fav_make_df["favorite_cast"].fillna("unknown").astype('category')
-    favorite_cast = fav_make_df[["profile_id","favorite_cast"]].drop_duplicates()
-    return favorite_cast
-
 
 
 ####### Profile 
@@ -128,6 +112,7 @@ def day_week_feature(df_train_week):
 
     return interaction_day_week_first
 
+
 def hour_feature(df_train_week):
     # hour_feature
 
@@ -155,3 +140,75 @@ def hour_feature(df_train_week):
 
     return hour_feature
 
+
+def meta_feature_engineering(meta):
+    ####### genre_small - reclassification
+    meta["genre_small"] = meta["genre_small"].fillna("etc")
+    
+    ####### country - reclassification
+    replace_country = ["아르헨티나","오스트리아","우크라이나","네덜란드","캐나다","크로아티아"]
+    meta['country'] = meta['country'].replace(to_replace = replace_country, value= 'etc')
+    
+    ####### cast_1 - reclassification    
+    meta_df = meta.drop_duplicates("album_id").groupby(["cast_1"]).size()
+    meta_sub_df= pd.DataFrame(meta_df[meta_df<19]).reset_index() #쥬쥬
+    meta_sub_list = meta_sub_df['cast_1'].tolist()
+    meta['cast_1'] = meta['cast_1'].replace(to_replace = meta_sub_list, value= 'etc').fillna("etc")
+    
+    ####### make categorical
+    cat_features = ['genre_large','genre_mid','genre_small','country',"cast_1"]
+    for i in enumerate (cat_features) :
+        col = i[1]
+        meta[col] = meta[col].astype('category')
+    meta = meta[["album_id",'genre_large','genre_mid','genre_small','country',"cast_1"]]
+    meta = meta.drop_duplicates(subset=["album_id","genre_mid"])
+    return meta
+
+
+def fav_cast(history,meta):
+    # 169 nunique cast 
+    
+    ####### find user's favorite cast 
+    history_df = history[["profile_id","album_id"]].drop_duplicates()
+    cast_df = meta[["album_id","cast_1"]].drop_duplicates()
+    fav_cast = pd.merge(history_df,cast_df,how='left',on="album_id")
+    fav_cast_df = pd.DataFrame(fav_cast.groupby(["profile_id","cast_1"]).size())
+    fav_cast_df2= fav_cast_df[fav_cast_df>=1].reset_index().sort_values(by=['profile_id',0],ascending=False).rename(columns={0:"cast_count"})
+    
+    User_list = fav_cast_df2['profile_id'].unique().tolist()
+    User_list.sort(reverse=True)
+
+    fav_list=[]
+    for user in User_list:
+        user_id = user
+        fav_cast = fav_cast_df2.loc[fav_cast_df2[(fav_cast_df2["profile_id"]==user_id)].index[0]].cast_1
+        cast_count = fav_cast_df2.loc[fav_cast_df2[(fav_cast_df2["profile_id"]==user_id)].index[0]].cast_count
+        fav_list.append({"profile_id":user_id , "favorite_cast": fav_cast, "cast_count":cast_count})
+
+    fav_df = pd.DataFrame(fav_list)
+    fav_make_df = pd.merge(history,fav_df,how="left",on="profile_id")
+    fav_make_df["favorite_cast"]= fav_make_df["favorite_cast"].fillna("unknown").astype('category')
+    favorite_cast = fav_make_df[["profile_id","favorite_cast","cast_count"]].drop_duplicates()
+    return favorite_cast
+
+
+def fav_keyword(history,meta_plus):
+    history_df = history[["profile_id","album_id"]].drop_duplicates()
+    meta_plus = meta_plus[["album_id","keyword_name"]].drop_duplicates()
+    fav_keywords = pd.merge(history_df,meta_plus,how='left',on="album_id")
+    fav_keywords = fav_keywords.groupby(["profile_id","keyword_name"]).size()
+    fav_keywords2= fav_keywords[fav_keywords>=1].reset_index().sort_values(by=['profile_id',0],ascending=False).rename(columns={0:"keyword_name_count"})
+
+    User_list = fav_keywords2['profile_id'].unique().tolist()
+    User_list.sort(reverse=True)
+
+    keyword=[]
+    for user in User_list:
+        user_id = user
+        represent_key = fav_keywords2.loc[fav_keywords2[(fav_keywords2["profile_id"]==user_id)].index[0]].keyword_name
+        represent_key_count = fav_keywords2.loc[fav_keywords2[(fav_keywords2["profile_id"]==user_id)].index[0]].keyword_name_count
+        keyword.append({"profile_id":user_id , "representable_key": represent_key, "represent_key_count":represent_key_count})
+
+    fav_keyword = pd.DataFrame(keyword)
+    fav_keyword["representable_key"]= fav_keyword["representable_key"].astype("category")
+    return fav_keyword

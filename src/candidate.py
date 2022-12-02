@@ -196,7 +196,7 @@ def user_genre_most_popular(df_train, meta_df):
 
 
 def age_MP(history_df, profile_df):
-    age_df = pd.merge(history,profile,how="left",on="profile_id")
+    age_df = pd.merge(history_df, profile_df, how="left",on="profile_id")
     age_mp_df = age_df.groupby(['age','album_id'])[["act_target_dtl"]].count().reset_index()
     age_mp_df = age_mp_df.rename(columns={"act_target_dtl":'age_album_counts'}).sort_values(by=["age","age_album_counts"],ascending=False)
 
@@ -224,9 +224,65 @@ def age_MP(history_df, profile_df):
             age_pool_mp_df = pd.concat([age_pool_mp_df,age_pool])
             
     age_pool_mp_df = age_pool_mp_df.drop_duplicates()  
-    add_proID = history.merge(profile,how="left",on="profile_id").drop(columns="album_id")
+    add_proID = history_df.merge(profile_df,how="left",on="profile_id").drop(columns="album_id")
     add_proID = add_proID.merge(age_mp_cand_df,how="left",on="age")
     age_MP_candidate = add_proID[["profile_id","album_id"]]
     age_MP_candidate = age_MP_candidate.drop_duplicates()
     
     return age_MP_candidate
+
+
+
+
+def series_candidate(df_train_week, threshold=30):
+    series_train_week= df_train_week.copy()
+    tmp = series_train_week.groupby('profile_id').log_date.max().reset_index()
+    tmp.columns = ['profile_id','max_dat']
+    tmp.rename(columns = {'log_date':'max_dat'},inplace=True)
+    series_train_week = series_train_week.merge(tmp,on=['profile_id'],how='left')
+    series_train_week['diff_dat'] = (series_train_week.max_dat - series_train_week.log_date).dt.days 
+    series_train_week = series_train_week.loc[series_train_week['diff_dat']<= 6 ] 
+    print('Train shape:',series_train_week.shape)
+
+    tmp = series_train_week.groupby(['profile_id','album_id'])['log_date'].agg('count').reset_index() 
+    tmp.columns = ['profile_id','album_id','ct'] 
+    series_train_week = series_train_week.merge(tmp,on=['profile_id','album_id'],how='left')  
+    series_train_week = series_train_week.sort_values(['ct','log_date'],ascending=False) 
+    series_train_week = series_train_week.drop_duplicates(['profile_id','album_id']) 
+    series_train_week = series_train_week.sort_values(['ct','log_date'],ascending=False) 
+
+    # 1. 영상 3개 이하 본 유저 리스트 / len(cold_user) : 670
+    user_list = series_train_week.profile_id.value_counts().reset_index()
+    user_list.columns = ['profile_id','view_count']
+    cold_user = user_list[user_list['view_count']<10].index.values.tolist()
+
+    #판매된 아이템 개수를, 아이템 ID별로 개수 집계
+    vc_ = series_train_week.album_id.value_counts().reset_index()
+    vc = vc_[vc_.album_id > 10].set_index('index')
+    pairs = {}
+    for j,i in tqdm(enumerate(vc.index.values)):
+        USERS_ = series_train_week.loc[series_train_week.album_id==i.item(),'profile_id'].unique().tolist()
+        USERS = [x for x in USERS_ if x not in cold_user]
+        vc2 = series_train_week.loc[(series_train_week.profile_id.isin(USERS))&(series_train_week.album_id!=i.item()),'album_id'].value_counts()
+        vc2 = vc2[vc2>=threshold]
+        if len(vc2.index)< 4:
+            pairs[i.item()] = [vc2.index[i] for i in range(len(vc2.index))]
+        else:
+            pairs[i.item()] = [vc2.index[0],vc2.index[1],vc2.index[2],vc2.index[3]]
+
+    df_list = []
+    for user_id in tqdm(df_train_week.profile_id.unique()):
+        df = pd.DataFrame()
+        album_list = []
+        for album_id in df_train_week[df_train_week["profile_id"]==user_id].album_id.unique():
+            album_list += pairs.get(album_id, [])
+        df["album_id"] = album_list
+        df["profile_id"] = user_id
+        df_list.append(df)
+    series_candidate = pd.concat(df_list)
+    series_candidate["album_id"] = series_candidate["album_id"].astype(int)
+    series_candidate = series_candidate.drop_duplicates()
+
+    print(series_candidate.profile_id.nunique())
+
+    return series_candidate
