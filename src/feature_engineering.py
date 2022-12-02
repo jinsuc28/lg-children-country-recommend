@@ -71,6 +71,13 @@ def meta_feature_engineering(meta):
     ####### genre_small - reclassification
     meta["genre_small"] = meta["genre_small"].fillna("etc")
     
+    ####### cast_1 - reclassification    
+    meta_df = meta.drop_duplicates("album_id").groupby(["cast_1"]).size()
+    meta_sub_df= pd.DataFrame(meta_df[meta_df<19]).reset_index() #쥬쥬
+    meta_sub_list = meta_sub_df['cast_1'].tolist()
+    meta['cast_1'] = meta['cast_1'].replace(to_replace = meta_sub_list, value= 'etc').fillna("etc")
+    
+    
     ####### country - reclassification
     replace_country = ["아르헨티나","오스트리아","우크라이나","네덜란드","캐나다","크로아티아"]
     meta['country'] = meta['country'].replace(to_replace = replace_country, value= 'etc')
@@ -78,7 +85,7 @@ def meta_feature_engineering(meta):
     meta["genre_mid"] = meta["genre_mid"].apply(lambda x: "노래율동" if "노래" in x else x)
 
     ####### make categorical
-    cat_features = ['genre_large','genre_mid','genre_small','country']
+    cat_features = ['genre_large','genre_mid','genre_small','country',"cast_1"]
     for i in enumerate (cat_features) :
         col = i[1]
         meta[col] = meta[col].astype('category')
@@ -89,8 +96,8 @@ def meta_feature_engineering(meta):
 ####### Profile 
 
 def profile_feature_engineering(profile):
-    #######  sex / age / pr_interest_keyword_cd_1 / ch_interest_keyword_cd_1 - categorical
-    cat_features = ['sex','age','pr_interest_keyword_cd_1','ch_interest_keyword_cd_1']
+    #######  sex / age\
+    cat_features = ['sex','age']
     for i in enumerate(cat_features) :
         col = i[1]
         profile[col] = profile[col].astype('category')
