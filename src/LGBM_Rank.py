@@ -11,7 +11,7 @@ from utils import ndcg_calculator
 class LGBMRank():
     def __init__(self, 
                 train_df:pd.DataFrame(), 
-                model_params:dict={'n_estimators':5},
+                model_params:dict={"num_leaves":20,"learning_rate":0.005, 'n_estimators':5},
                 path:str='../../data/',
                 mode:str='week',
                 n=25):
@@ -54,8 +54,8 @@ class LGBMRank():
             objective="lambdarank",
             metric="ndcg",
             boosting_type="dart",
-            num_leaves= 20,
-            learning_rate=0.005,
+            num_leaves= model_params["num_leaves"],
+            learning_rate=model_params["learning_rate"],
             n_estimators= model_params['n_estimators'],
             importance_type='gain',
             verbose= -1,

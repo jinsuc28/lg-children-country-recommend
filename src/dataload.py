@@ -67,15 +67,17 @@ def day_week_feature_engineering(df_train:pd.DataFrame())->pd.DataFrame():
 
 
 # train, label split
-def train_label_split(df_train:pd.DataFrame())->pd.DataFrame():
-    last_week = df_train['week'].max()
+def train_label_split(df_train:pd.DataFrame, cv_date=0, include=True)->pd.DataFrame:
+    last_week = df_train['week'].max() - cv_date
     print('split last week:', last_week)
 
-    label_df = df_train.query(f'week=={last_week}')[['profile_id','album_id']]
+    label_df = df_train.query(f'week=={last_week - cv_date }')[['profile_id','album_id']]
     label_df.drop_duplicates(subset=['profile_id','album_id'],inplace=True)
     label_df['rating'] = 1
-
-    df_train = df_train.query(f"week <= {last_week}")
+    if include==True:
+        df_train = df_train.query(f"week <= {last_week - cv_date}")
+    else:
+        df_train = df_train.query(f"week < {last_week - cv_date}")
     
     return df_train, label_df
 
